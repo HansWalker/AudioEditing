@@ -35,7 +35,6 @@ def run_app():
         st.write(f'Rhythm: {rhythm}')
         st.write(f'Genre: {genre}')
         st.write(f'Duration: {duration} minutes')
-        st.download_button(label="Download Music", data=sound_file, file_name='music.mp3', mime='audio/mp3')
 
         regenerate_button = st.button("Generate New Music", key=key)
         key += 1

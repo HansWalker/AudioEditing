@@ -94,7 +94,7 @@ def run_app(
     file_names = os.listdir('./Music')
 
     st.title('HIIT Music App')
-
+    st.image('sonic.png',  width=200)
     placeholder = st.empty()
     # Default values
     with placeholder.container():

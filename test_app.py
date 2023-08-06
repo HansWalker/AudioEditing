@@ -97,35 +97,35 @@ def run_app(
 
     placeholder = st.empty()
     # Default values
-    if(starting):
-        with placeholder.container():
-            print("Starting")
+    with placeholder.container():
 
-            tempo = st.slider("Select Tempo", 20, 200, 100)  # Added slider with default value 120
-            mood = st.selectbox("Select Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"]) # Added selectbox for rhythm
-            bpm = st.slider("Select Beats Per Minute", 80, 180, 100) # Added slider for BPM
-            song = st.selectbox("Select Song", file_names) # Added selectbox for song
-            remix = st.checkbox("Remix Music")
+        tempo = st.slider("Select Tempo", 20, 200, 100)  # Added slider with default value 120
+        mood = st.selectbox("Select Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"]) # Added selectbox for rhythm
+        bpm = st.slider("Select Beats Per Minute", 80, 180, 100) # Added slider for BPM
+        song = st.selectbox("Select Song", file_names) # Added selectbox for song
+        remix = st.checkbox("Remix Music")
+        text=st.text_input('Type in name of playlist',value='My Playlist')
 
-            #Parameters for second song
-            if(remix):
-                tempo2 = st.slider("Select Second Tempo", 20, 200, 100,key=key)  # Added slider with default value 120
-                key+=1
-                mood2 = st.selectbox("Select Second Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"],key=key) # Added selectbox for rhythm
-                key+=1
-                bpm2 = st.slider("Select Second Beats Per Minute", 80, 180, 100,key=key) # Added slider for BPM
-                key+=1
-                song2 = st.selectbox("Select Song", file_names,key=key) # Added selectbox for song
-                key+=1
-                
-            duration = st.slider(label="Select Duration (minutes)", 
-                                value=5,
-                                min_value = 1,
-                                max_value = 60,
-                                step = 1,
-                                key = 'slider') # Added slider with default value 60
+        #Parameters for second song
+        if(remix):
+            tempo2 = st.slider("Select Second Tempo", 20, 200, 100,key=key)  # Added slider with default value 120
+            key+=1
+            mood2 = st.selectbox("Select Second Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"],key=key) # Added selectbox for rhythm
+            key+=1
+            bpm2 = st.slider("Select Second Beats Per Minute", 80, 180, 100,key=key) # Added slider for BPM
+            key+=1
+            song2 = st.selectbox("Select Song", file_names,key=key) # Added selectbox for song
+            key+=1
+            
+        duration = st.slider(label="Select Duration (minutes)", 
+                            value=5,
+                            min_value = 1,
+                            max_value = 60,
+                            step = 1,
+                            key = 'slider') # Added slider with default value 60
 
-            submit_button = st.button("Submit")
+        submit_button = st.button("Submit")
+        key+=1
             
 
     if submit_button:
@@ -158,62 +158,14 @@ def run_app(
             st.audio(audio, start_time=0,sample_rate=sr)
         else:
             st.audio(audio, start_time=0,sample_rate=sr)
-
-        regenerate_button = st.button("Generate New Music", key=key)
-        submit_button = regenerate_button
-        key+=1
+        
         generate_next = st.button("Generate Next Track", key=key)
-        submit_button = generate_next
-        key+=1
-        reset_button = st.button("Reset Tracks", key=key)
-        submit_button = reset_button
-        key+=1
-        finish_button = st.button("Finished Generating", key=key)
-        submit_button = finish_button
-        key+=1
-
-        if(reset_button):
-            tracks={}
-        if(generate_next):
-            tracks.update({len(tracks)+1: audio})
-        key += 1
-
-        if ((regenerate_button or generate_next or reset_button) and (not finish_button)):
-            with placeholder.container():
-                
-                print(regenerate_button , generate_next , reset_button ,  finish_button)
-                tempo = st.slider("Select Tempo", 60, 200, 100, key=key)  # Added slider with default value 120
-                key+=1
-                bpm = st.slider("Select Beats Per Minute", 80, 180, 100) # Added slider for BPM
-                key+=1
-                song = st.selectbox("Select Song", file_names) # Added selectbox for song
-                key+=1
-                remix2 = st.checkbox("Remix Music",key=key)
-                key+=1
-                if(remix2):
-                    tempo2 = st.slider("Select Second Tempo", 20, 200, 100,key=key)  # Added slider with default value 120
-                    key+=1
-                    mood2 = st.selectbox("Select Second Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"],key=key) # Added selectbox for rhythm
-                    key+=1
-                    bpm2 = st.slider("Select Second Beats Per Minute", 80, 180, 100,key=key) # Added slider for BPM
-                    key+=1
-                    song2 = st.selectbox("Select Song", file_names,key=key) # Added selectbox for song
-                    key+=1
-                duration = st.slider(label="Select Duration (minutes)", 
-                                    min_value = 1,
-                                    max_value = 60,
-                                    step = 1,key=key) # Added slider with default value 60
-                remix = remix2
-
-                key+=1
-                submit_button = st.button("Submit",key=key)
-                key+=1
-        if(finish_button):
-            text=st.text_input('Type in name of playlist',value='My Playlist')
-            create_p=st.button('Create Playlist')
-            if(create_p):
-                for key in tracks:
-                    sf.write(f'./{text}/track{key}.wav',tracks[key],sr)
+        if(os.path.isdir(f'./{text}')):
+            number_of_tracks = len(os.listdir(f'./{text}'))
+        else:
+            number_of_tracks = 0
+            os.mkdir(f'./{text}')
+        sf.write(f'./{text}/track{number_of_tracks}.wav',audio,sr)
 
 
 

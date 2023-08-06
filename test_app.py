@@ -1,12 +1,10 @@
 import streamlit as st
 import librosa
-import pydub
-import mido
 from pydub import AudioSegment
 import librosa
 import pyAudioAnalysis as paa
 # Load audio
-from sclib import SoundcloudAPI, Track, Playlist
+from sclib import SoundcloudAPI
 import os
 import numpy as np
 import soundfile as sf
@@ -26,7 +24,6 @@ def get_music():
             with open(filename, 'wb+') as file:
                 track.write_mp3_to(file)
 
-    return file_names
 
 def amplitude_scale(signal, scale_factor):
     """Scale the amplitude of the signal."""
@@ -35,7 +32,7 @@ def amplitude_scale(signal, scale_factor):
 def run_model(params):
 
     # Load audio
-    audio, sr = librosa.load("./Music/"+params['song']+".mp3", dtype=np.float32)
+    audio, sr = librosa.load("./Music/"+params['song'], dtype=np.float32)
 
     # Remix audio for emotions using librosa's pitch shifting and time stretching functions
     if(params['mood']=='Happy'):
@@ -54,73 +51,170 @@ def run_model(params):
         audio = librosa.effects.pitch_shift(audio, sr=sr, n_steps=3)
         romantic_mfcc = librosa.feature.mfcc(y=audio, sr=sr)
 
+    tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
+
+    stretch_rate = params['bpm'] / tempo
+
+    audio = librosa.effects.time_stretch(audio, rate=stretch_rate)
+
+
     audio = librosa.effects.time_stretch(audio, rate=params['tempo']/100)
 
     return audio, sr
 
-    
+def mix(audio1, audio2, tempo1, tempo2,sr1,sr2):
 
-def run_app():
+    # Time stretch
+    audio1 = librosa.effects.time_stretch(audio1, rate=tempo2/tempo1)
+    audio2 = librosa.effects.time_stretch(audio2, rate=tempo1/tempo2)
+
+    # Resample audio2
+    audio2 = librosa.resample(audio2, orig_sr=sr2, target_sr=sr1)
+
+    # Pad signals to equal length
+    if len(audio1) < len(audio2):
+        audio1 = np.pad(audio1, (0, len(audio2) - len(audio1)), 'constant')
+    elif len(audio2) < len(audio1):
+        audio2 = np.pad(audio2, (0, len(audio1) - len(audio2)), 'constant')
+
+    # Combine signals
+    mixed = audio1 + audio2
+
+    return mixed
+
+
+def run_app(
+    starting = True):
     key = 0
     #st.set_page_config(layout="wide")
 
-    file_names=get_music()
+    tracks={}
+
+    get_music()
+    file_names = os.listdir('./Music')
 
     st.title('HIIT Music App')
 
     placeholder = st.empty()
     # Default values
-    with placeholder.container():
+    if(starting):
+        with placeholder.container():
+            print("Starting")
 
-        tempo = st.slider("Select Tempo", 20, 200, 1)  # Added slider with default value 120
-        mood = st.selectbox("Select Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"]) # Added selectbox for rhythm
-        genre = st.selectbox("Select Genre", ['Pop', 'Rock', 'Bhangra', 'Reggaeton']) # Added selectbox for genre
-        song = st.selectbox("Select Song", file_names) # Added selectbox for song
-        duration = st.slider(label="Select Duration (minutes)", 
-                            value=5,
-                            min_value = 1,
-                            max_value = 60,
-                            step = 1,
-                            key = 'slider') # Added slider with default value 60
+            tempo = st.slider("Select Tempo", 20, 200, 100)  # Added slider with default value 120
+            mood = st.selectbox("Select Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"]) # Added selectbox for rhythm
+            bpm = st.slider("Select Beats Per Minute", 80, 180, 100) # Added slider for BPM
+            song = st.selectbox("Select Song", file_names) # Added selectbox for song
+            remix = st.checkbox("Remix Music")
 
-        submit_button = st.button("Submit")
+            #Parameters for second song
+            if(remix):
+                tempo2 = st.slider("Select Second Tempo", 20, 200, 100,key=key)  # Added slider with default value 120
+                key+=1
+                mood2 = st.selectbox("Select Second Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"],key=key) # Added selectbox for rhythm
+                key+=1
+                bpm2 = st.slider("Select Second Beats Per Minute", 80, 180, 100,key=key) # Added slider for BPM
+                key+=1
+                song2 = st.selectbox("Select Song", file_names,key=key) # Added selectbox for song
+                key+=1
+                
+            duration = st.slider(label="Select Duration (minutes)", 
+                                value=5,
+                                min_value = 1,
+                                max_value = 60,
+                                step = 1,
+                                key = 'slider') # Added slider with default value 60
+
+            submit_button = st.button("Submit")
+            
 
     if submit_button:
+        starting = False
         placeholder.empty()
-        params = {'tempo': tempo, 'mood': mood, 'genre': genre, 'duration': duration, 'song':song}
+        params = {'tempo': tempo, 'mood': mood, 'bpm': bpm, 'duration': duration, 'song':song}
+        if(remix):
+            params2 = {'tempo': tempo2, 'mood': mood2, 'bpm': bpm2, 'duration': duration, 'song':song2}
         placeholder.write("Please wait while we generate your music...")
         audio, sr = run_model(params)
+        if(remix):
+            audio2, sr2 = run_model(params2)
 
         placeholder.empty()
 
         
         #file_name=st.selectbox("Select Music", file_list)
-        st.audio(audio, start_time=0,sample_rate=sr)
         st.write(f'Tempo: {tempo}')
         st.write(f'Rhythm: {mood}')
-        st.write(f'Genre: {genre}')
+        st.write(f'Beats Per Minute: {bpm}')
         st.write(f'Duration: {duration} minutes')
 
+        if(remix):
+            st.write(f'Tempo: {tempo2}')
+            st.write(f'Rhythm: {mood2}')
+            st.write(f'Beats Per Minute: {bpm2}')
+            st.write(f'Duration: {duration} minutes')
+        if(remix):
+            audio = mix(audio, audio2, tempo, tempo2,sr,sr2)
+            st.audio(audio, start_time=0,sample_rate=sr)
+        else:
+            st.audio(audio, start_time=0,sample_rate=sr)
+
         regenerate_button = st.button("Generate New Music", key=key)
+        submit_button = regenerate_button
+        key+=1
+        generate_next = st.button("Generate Next Track", key=key)
+        submit_button = generate_next
+        key+=1
+        reset_button = st.button("Reset Tracks", key=key)
+        submit_button = reset_button
+        key+=1
+        finish_button = st.button("Finished Generating", key=key)
+        submit_button = finish_button
+        key+=1
+
+        if(reset_button):
+            tracks={}
+        if(generate_next):
+            tracks.update({len(tracks)+1: audio})
         key += 1
 
-        if regenerate_button:
+        if ((regenerate_button or generate_next or reset_button) and (not finish_button)):
             with placeholder.container():
-                tempo = st.slider("Select Tempo", 60, 200, 120, key=key)  # Added slider with default value 120
+                
+                print(regenerate_button , generate_next , reset_button ,  finish_button)
+                tempo = st.slider("Select Tempo", 60, 200, 100, key=key)  # Added slider with default value 120
                 key+=1
-                rhythm = st.selectbox("Select Rhythm", ["Steady", "other rhythms..."], key=key) # Added selectbox for rhythm
-                key+=1
-                genre = st.selectbox("Select Genre", ['pop', 'rock', 'bhangra', 'reggaeton'], key=key) # Added selectbox for genre
+                bpm = st.slider("Select Beats Per Minute", 80, 180, 100) # Added slider for BPM
                 key+=1
                 song = st.selectbox("Select Song", file_names) # Added selectbox for song
                 key+=1
+                remix2 = st.checkbox("Remix Music",key=key)
+                key+=1
+                if(remix2):
+                    tempo2 = st.slider("Select Second Tempo", 20, 200, 100,key=key)  # Added slider with default value 120
+                    key+=1
+                    mood2 = st.selectbox("Select Second Mood", ["Happy", "Sad", "Angry", "Relaxed", "Romantic"],key=key) # Added selectbox for rhythm
+                    key+=1
+                    bpm2 = st.slider("Select Second Beats Per Minute", 80, 180, 100,key=key) # Added slider for BPM
+                    key+=1
+                    song2 = st.selectbox("Select Song", file_names,key=key) # Added selectbox for song
+                    key+=1
                 duration = st.slider(label="Select Duration (minutes)", 
                                     min_value = 1,
                                     max_value = 60,
                                     step = 1,key=key) # Added slider with default value 60
+                remix = remix2
+
                 key+=1
                 submit_button = st.button("Submit",key=key)
                 key+=1
+        if(finish_button):
+            text=st.text_input('Type in name of playlist',value='My Playlist')
+            create_p=st.button('Create Playlist')
+            if(create_p):
+                for key in tracks:
+                    sf.write(f'./{text}/track{key}.wav',tracks[key],sr)
+
 
 
 

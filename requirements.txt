@@ -6,3 +6,5 @@ pyAudioAnalysis
 eyed3
 hmmlearn
 imblearn
+sclib
+soundfile
